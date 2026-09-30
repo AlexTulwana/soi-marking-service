@@ -1,12 +1,13 @@
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 
 from app.fetcher import fetch_file
 from app.inspector import inspect_file
 from app.markers.base import Marker, MarkingInput
 from app.markers.gemini_marker import GeminiMarker
 from app.schemas import MarkRequest, MarkResponse
+from app.security import require_api_key
 
 log = logging.getLogger("soi.marking")
 
@@ -43,7 +44,8 @@ def _unusable_submission() -> MarkResponse:
 
 # Mark a submission.
 # Download both files, check their type, then ask the marker.
-@app.post("/mark", response_model=MarkResponse)
+@app.post("/mark", response_model=MarkResponse,
+          dependencies=[Depends(require_api_key)])
 def mark(request: MarkRequest):
     try:
         memo_bytes = fetch_file(request.memo_url)

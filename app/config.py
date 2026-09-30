@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    service_api_key: str = ""  # Laravel must send this in X-API-Key
     unreadable_below: float = 30.0  # OCR/AI confidence under this = unreadable
 
 
