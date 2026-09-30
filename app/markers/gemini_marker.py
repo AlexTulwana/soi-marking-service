@@ -1,4 +1,6 @@
+import time
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import BaseModel
 
@@ -38,8 +40,20 @@ class GeminiMarker(Marker):
         reply = self._ask(marking_input)
         return self._to_response(reply, marking_input)
 
-    # Sends prompt + memo + submission to Gemini, gets JSON back.
+    # Tries Gemini up to 3 times when Google is busy or limiting us.
+    # Other errors fail straight away. Laravel's job retries after that.
     def _ask(self, inp: MarkingInput) -> _GeminiReply:
+        for attempt in range(3):
+            try:
+                return self._ask_once(inp)
+            except genai_errors.APIError as exc:
+                busy = exc.code in (429, 500, 503, 504)
+                if not busy or attempt == 2:
+                    raise
+                time.sleep(3 * (attempt + 1))
+
+    # One call: sends prompt + memo + submission, gets JSON back.
+    def _ask_once(self, inp: MarkingInput) -> _GeminiReply:
         contents = [
             self._build_prompt(inp),
             "MEMO:",
@@ -107,7 +121,7 @@ class GeminiMarker(Marker):
         if not reply.readable or confidence < settings.unreadable_below:
             return MarkResponse(
                 score=None,
-                confidence=confidence,
+                confidence=0.0,
                 feedback=UNREADABLE_FEEDBACK,
                 unreadable=True,
             )
