@@ -2,10 +2,13 @@ import logging
 
 from fastapi import Depends, FastAPI, HTTPException
 
+from app.config import settings
 from app.fetcher import fetch_file
 from app.inspector import inspect_file
 from app.markers.base import Marker, MarkingInput
 from app.markers.gemini_marker import GeminiMarker
+from app.markers.similarity_marker import SimilarityMarker
+from app.ocr import get_ocr_engine
 from app.schemas import MarkRequest, MarkResponse
 from app.security import require_api_key
 
@@ -21,10 +24,16 @@ BAD_FILE_FEEDBACK = (
 )
 
 
-# Picks the marker to use.
-# Only Gemini for now. The fallback marker gets added here later.
+# Picks the main marker (Gemini).
 def get_marker() -> Marker:
     return GeminiMarker()
+
+
+# Picks the basic fallback marker, or None when it is switched off.
+def get_fallback_marker() -> Marker | None:
+    if not settings.fallback_enabled:
+        return None
+    return SimilarityMarker(get_ocr_engine())
 
 
 # Simple health check.
@@ -75,4 +84,16 @@ def mark(request: MarkRequest):
         return get_marker().mark(marking_input)
     except Exception:
         log.exception("Marker failed for submission %s", request.submission_id)
-        raise HTTPException(status_code=503, detail="Marking is unavailable")
+
+    # The main marker is down. Try the basic fallback, which only gives a
+    # provisional mark, and only when both files can be read clearly.
+    fallback = get_fallback_marker()
+    if fallback is not None:
+        try:
+            result = fallback.mark(marking_input)
+            log.warning("Provisional fallback mark for submission %s", request.submission_id)
+            return result
+        except Exception:
+            log.exception("Fallback failed for submission %s", request.submission_id)
+
+    raise HTTPException(status_code=503, detail="Marking is unavailable")
