@@ -27,3 +27,4 @@ class MarkResponse(BaseModel):
     feedback: str
     criterion_scores: dict[str, float] = {}
     unreadable: bool = False
+    provisional: bool = False

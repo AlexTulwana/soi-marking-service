@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
     service_api_key: str = ""  # Laravel must send this in X-API-Key
     unreadable_below: float = 30.0  # OCR/AI confidence under this = unreadable
+    fallback_enabled: bool = True  # basic provisional marking if Gemini fails
+    fallback_min_ocr_confidence: float = 50.0  # weaker OCR reads are refused
 
 
 settings = Settings()
