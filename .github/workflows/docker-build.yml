@@ -1,0 +1,31 @@
+name: Docker build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the marking image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: soi-marking:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Check the image works
+        run: |
+          docker run --rm soi-marking:ci tesseract --version
+          docker run --rm soi-marking:ci python -c "import fastapi, pytesseract, pymupdf, docx; print('imports ok')"
